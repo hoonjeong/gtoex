@@ -3,19 +3,26 @@ import type { ActionFrequency } from '../../types/gto';
 interface ActionFrequencyBarProps {
   frequencies: ActionFrequency;
   playerAction?: 'fold' | 'call' | 'raise';
+  facingBet?: boolean; // true: 폴드/콜/레이즈, false: 체크/벳
 }
 
-export default function ActionFrequencyBar({ frequencies, playerAction }: ActionFrequencyBarProps) {
+export default function ActionFrequencyBar({ frequencies, playerAction, facingBet = true }: ActionFrequencyBarProps) {
   const total = frequencies.fold + frequencies.call + frequencies.raise;
   if (total === 0) return null;
 
   const pct = (v: number) => Math.round((v / total) * 100);
 
-  const segments = [
-    { key: 'fold' as const, value: frequencies.fold, color: 'bg-red-500', label: '폴드' },
-    { key: 'call' as const, value: frequencies.call, color: 'bg-green-500', label: '콜' },
-    { key: 'raise' as const, value: frequencies.raise, color: 'bg-yellow-500', label: '레이즈' },
-  ].filter((s) => s.value > 0);
+  const segments = facingBet
+    ? [
+        { key: 'fold' as const, value: frequencies.fold, color: 'bg-red-500', label: '폴드' },
+        { key: 'call' as const, value: frequencies.call, color: 'bg-green-500', label: '콜' },
+        { key: 'raise' as const, value: frequencies.raise, color: 'bg-yellow-500', label: '레이즈' },
+      ].filter((s) => s.value > 0)
+    : [
+        // 체크 가능 상황: fold 없음, call=check, raise=bet
+        { key: 'call' as const, value: frequencies.call, color: 'bg-green-500', label: '체크' },
+        { key: 'raise' as const, value: frequencies.raise, color: 'bg-yellow-500', label: '벳' },
+      ].filter((s) => s.value > 0);
 
   return (
     <div className="w-full">

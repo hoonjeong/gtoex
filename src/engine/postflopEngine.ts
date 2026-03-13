@@ -126,58 +126,89 @@ export function getPostflopFrequencies(
   }
 
   // Convert composite score to action frequencies
+  // fold/call/raise는 내부 계산용. facingBet 여부에 따라 의미가 달라짐:
+  //   facingBet=true  → fold / call / raise
+  //   facingBet=false → (fold 없음) check / bet
   let fold = 0;
-  let call = 0;
-  let raise = 0;
+  let call = 0;  // facingBet=false면 "check" 의미
+  let raise = 0; // facingBet=false면 "bet" 의미
 
   const facingBet = currentBet > 0;
 
-  if (compositeScore >= 0.75) {
-    // Strong hand: mostly raise/bet
-    raise = 0.7 + (compositeScore - 0.75) * 1.2;
-    call = 0.2;
-    fold = 0;
-  } else if (compositeScore >= 0.55) {
-    // Good hand: mix of call and raise
-    raise = 0.3;
-    call = 0.5;
-    fold = 0.2;
-  } else if (compositeScore >= 0.40) {
-    // Medium: mostly call, some fold
-    if (facingBet) {
+  if (facingBet) {
+    // ── 벳에 직면한 상황: 폴드 / 콜 / 레이즈 ──
+    if (compositeScore >= 0.75) {
+      raise = 0.7 + (compositeScore - 0.75) * 1.2;
+      call = 0.2;
+      fold = 0;
+    } else if (compositeScore >= 0.55) {
+      raise = 0.3;
+      call = 0.5;
+      fold = 0.2;
+    } else if (compositeScore >= 0.40) {
       call = 0.45;
       fold = 0.45;
-      raise = 0.10; // semi-bluff sometimes
+      raise = 0.10;
+    } else if (compositeScore >= 0.25) {
+      if (drawEquity > 0.15) {
+        call = 0.5;
+        fold = 0.35;
+        raise = 0.15;
+      } else {
+        fold = 0.7;
+        call = 0.2;
+        raise = 0.1;
+      }
     } else {
-      call = 0.55; // check
-      raise = 0.25; // small bet
-      fold = 0.20;
+      fold = 0.85;
+      call = 0.05;
+      raise = 0.10;
     }
-  } else if (compositeScore >= 0.25) {
-    // Weak: mostly fold, but draw hands can call
-    if (drawEquity > 0.15) {
-      call = 0.5;
-      fold = 0.35;
-      raise = 0.15; // semi-bluff
-    } else {
-      fold = 0.7;
-      call = 0.2;
-      raise = 0.1;
-    }
-  } else {
-    // Nothing: mostly fold
-    fold = 0.85;
-    call = 0.05;
-    raise = 0.10; // bluff frequency
-  }
 
-  // 포지션 조정: IP는 공격적, OOP는 수비적
-  if (inPosition) {
-    raise += 0.10;
-    fold = Math.max(0, fold - 0.10);
+    // 포지션 조정
+    if (inPosition) {
+      raise += 0.10;
+      fold = Math.max(0, fold - 0.10);
+    } else {
+      call += 0.08;
+      raise = Math.max(0, raise - 0.08);
+    }
   } else {
-    call += 0.08;
-    raise = Math.max(0, raise - 0.08);
+    // ── 선 액션 (체크 가능 상황): 체크 / 벳 (폴드 없음) ──
+    fold = 0; // 체크할 수 있으므로 폴드 불필요
+
+    if (compositeScore >= 0.75) {
+      // 강한 핸드: 높은 벳 빈도 (밸류벳)
+      raise = 0.70; // bet
+      call = 0.30;  // check (슬로플레이/트래핑)
+    } else if (compositeScore >= 0.55) {
+      // 괜찮은 핸드: 벳 or 체크
+      raise = 0.40; // bet
+      call = 0.60;  // check
+    } else if (compositeScore >= 0.40) {
+      // 중간 핸드: 주로 체크, 가끔 벳
+      raise = 0.20; // bet (thin value / probe)
+      call = 0.80;  // check
+    } else if (compositeScore >= 0.25) {
+      // 약한/드로우: 체크 위주, 세미블러프 가능
+      if (drawEquity > 0.15) {
+        raise = 0.30; // semi-bluff bet
+        call = 0.70;  // check
+      } else {
+        raise = 0.10;
+        call = 0.90;  // check
+      }
+    } else {
+      // 노싱: 주로 체크, 소량 블러프
+      raise = 0.15; // bluff bet
+      call = 0.85;  // check
+    }
+
+    // 포지션 조정: IP이면 벳 빈도 증가
+    if (inPosition) {
+      raise += 0.08;
+      call = Math.max(0, call - 0.08);
+    }
   }
 
   // Normalize
@@ -245,10 +276,13 @@ function generatePostflopExplanation(
 
   parts.push(`포지션: ${inPosition ? '인 포지션 (IP)' : '아웃 오브 포지션 (OOP)'}`);
 
-  const action = facingBet ? '베팅에 직면' : '체크 가능';
-  parts.push(`상황: ${action}`);
-
-  parts.push(`GTO 빈도: 폴드 ${pct(freq.fold)}, 콜/체크 ${pct(freq.call)}, 레이즈/벳 ${pct(freq.raise)}`);
+  if (facingBet) {
+    parts.push('상황: 베팅에 직면');
+    parts.push(`GTO 빈도: 폴드 ${pct(freq.fold)}, 콜 ${pct(freq.call)}, 레이즈 ${pct(freq.raise)}`);
+  } else {
+    parts.push('상황: 선 액션 (체크 가능)');
+    parts.push(`GTO 빈도: 체크 ${pct(freq.call)}, 벳 ${pct(freq.raise)}`);
+  }
 
   return parts.join('\n');
 }

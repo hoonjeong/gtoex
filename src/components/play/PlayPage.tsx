@@ -197,6 +197,7 @@ export default function PlayPage() {
           }}
           onNextHand={() => handleNextHand()}
           street={game.street}
+          facingBet={game.street === 'preflop' || game.currentBet > 0}
         />
       )}
     </div>

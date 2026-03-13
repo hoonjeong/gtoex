@@ -12,6 +12,7 @@ interface GtoFeedbackModalProps {
   onClose: () => void;
   onNextHand: () => void;
   street: Street;
+  facingBet?: boolean; // 벳에 직면 여부 (false면 체크/벳 표시)
 }
 
 export default function GtoFeedbackModal({
@@ -21,6 +22,7 @@ export default function GtoFeedbackModal({
   onClose,
   onNextHand,
   street,
+  facingBet = true,
 }: GtoFeedbackModalProps) {
   const [showRange, setShowRange] = useState(false);
 
@@ -69,21 +71,31 @@ export default function GtoFeedbackModal({
         {/* GTO frequencies */}
         <div className="mb-4">
           <h3 className="text-gray-300 text-sm font-medium mb-2">{STRINGS.gtoFrequencies}</h3>
-          <ActionFrequencyBar frequencies={advice.frequencies} />
+          <ActionFrequencyBar frequencies={advice.frequencies} facingBet={facingBet} />
         </div>
 
         {/* Correct actions */}
         <div className="mb-4">
           <div className="text-gray-400 text-xs mb-1">정답 액션:</div>
           <div className="flex gap-2">
-            {advice.correctActions.map((action) => (
-              <span
-                key={action}
-                className="px-3 py-1 bg-gray-700 rounded-full text-sm font-medium text-white capitalize"
-              >
-                {action === 'fold' ? '폴드' : action === 'call' ? '콜' : '레이즈'}
-              </span>
-            ))}
+            {advice.correctActions.map((action) => {
+              let label: string;
+              if (facingBet) {
+                label = action === 'fold' ? '폴드' : action === 'call' ? '콜' : '레이즈';
+              } else {
+                // 체크 가능 상황: call=체크, raise=벳, fold는 표시 안 함
+                if (action === 'fold') return null;
+                label = action === 'call' ? '체크' : '벳';
+              }
+              return (
+                <span
+                  key={action}
+                  className="px-3 py-1 bg-gray-700 rounded-full text-sm font-medium text-white capitalize"
+                >
+                  {label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
