@@ -112,7 +112,8 @@ function buildPreflopActions(
   scenario: ScenarioType,
   heroPos: Position,
   villainPos: Position | null,
-  format: GameFormat
+  format: GameFormat,
+  villainOpenSize: number
 ): PlayerAction[] {
   const actions: PlayerAction[] = [];
   const order = format === '6max' ? ACTION_ORDER_6MAX : ACTION_ORDER_9MAX;
@@ -124,39 +125,35 @@ function buildPreflopActions(
       actions.push({ position: pos as Position, action: 'fold' });
     }
   } else if (scenario === 'vsRFI' && villainPos) {
-    // 빌런 앞은 폴드, 빌런은 레이즈, 빌런과 히어로 사이는 폴드
+    // 빌런 앞은 폴드, 빌런은 오픈 레이즈, 빌런과 히어로 사이는 폴드
     let villainPassed = false;
     for (const pos of order) {
       if (pos === heroPos) break;
       if (pos === villainPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: 2.5 });
+        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize });
         villainPassed = true;
         continue;
       }
       actions.push({ position: pos as Position, action: 'fold' });
     }
-    // 빌런이 히어로 뒤에 있는 비정상 상황 방지
     if (!villainPassed) {
-      // 빌런을 찾지 못했으면 첫 포지션을 빌런으로 설정
-      actions.unshift({ position: order[0] as Position, action: 'raise', amount: 2.5 });
+      actions.unshift({ position: order[0] as Position, action: 'raise', amount: villainOpenSize });
     }
   } else if (scenario === 'vs3Bet' && villainPos) {
-    // 히어로 앞은 폴드, 히어로는 오픈 레이즈, 사이는 폴드, 빌런은 3벳
+    // 히어로 오픈 레이즈, 빌런 3벳
+    const heroOpenSize = getOpenSize(heroPos);
     for (const pos of order) {
       if (pos === heroPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: 2.5 });
+        actions.push({ position: pos as Position, action: 'raise', amount: heroOpenSize });
         continue;
       }
       if (pos === villainPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: 7.5 });
+        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize });
         break;
       }
-      // 히어로 전 = 폴드, 히어로와 빌런 사이 = 폴드
       if (!actions.some(a => a.position === heroPos)) {
-        // 아직 히어로 차례가 안 옴 = 히어로 앞 플레이어
         actions.push({ position: pos as Position, action: 'fold' });
       } else {
-        // 히어로와 빌런 사이 플레이어
         actions.push({ position: pos as Position, action: 'fold' });
       }
     }
@@ -174,11 +171,63 @@ function calcPot(actions: PlayerAction[], numPlayers: number, ante: number): num
   return pot;
 }
 
-function calcCurrentBet(scenario: ScenarioType): number {
-  if (scenario === 'RFI') return 0;
-  if (scenario === 'vsRFI') return 2.5;
-  if (scenario === 'vs3Bet') return 7.5;
-  return 0;
+/**
+ * 포지션별 실전 오픈 사이즈 (BB 단위)
+ * EP: 2.5x (타이트 레인지, 큰 사이즈로 보호)
+ * MP: 2.3-2.5x
+ * CO: 2.2-2.5x
+ * BTN: 2.0-2.5x (넓은 레인지, 작은 사이즈)
+ * SB: 2.5-3.0x (OOP이므로 큰 사이즈)
+ */
+function getOpenSize(position: Position): number {
+  const baseSizes: Record<string, [number, number]> = {
+    UTG:  [2.3, 2.7],
+    UTG1: [2.3, 2.7],
+    UTG2: [2.3, 2.5],
+    LJ:   [2.2, 2.5],
+    HJ:   [2.2, 2.5],
+    CO:   [2.0, 2.5],
+    BTN:  [2.0, 2.5],
+    SB:   [2.5, 3.0],
+  };
+  const [min, max] = baseSizes[position] || [2.2, 2.5];
+  // 소수 첫째자리까지 랜덤
+  const raw = min + Math.random() * (max - min);
+  return Math.round(raw * 10) / 10;
+}
+
+/**
+ * 3벳 사이즈 계산
+ * IP 3벳: 약 2.5~3x 원래 오픈 사이즈
+ * OOP 3벳: 약 3~4x 원래 오픈 사이즈
+ */
+function get3BetSize(openSize: number, isInPosition: boolean): number {
+  const multiplier = isInPosition
+    ? 2.5 + Math.random() * 0.5  // IP: 2.5-3.0x
+    : 3.0 + Math.random() * 1.0; // OOP: 3.0-4.0x
+  return Math.round(openSize * multiplier * 10) / 10;
+}
+
+function calcCurrentBet(scenario: ScenarioType, villainPos: Position | null, heroPos: Position): { currentBet: number; villainOpenSize: number } {
+  if (scenario === 'RFI') return { currentBet: 0, villainOpenSize: 0 };
+
+  if (scenario === 'vsRFI' && villainPos) {
+    const openSize = getOpenSize(villainPos);
+    return { currentBet: openSize, villainOpenSize: openSize };
+  }
+
+  if (scenario === 'vs3Bet' && villainPos) {
+    // 히어로가 먼저 오픈, 빌런이 3벳
+    const heroOpenSize = getOpenSize(heroPos);
+    const posOrder = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+    const heroIdx = posOrder.indexOf(heroPos);
+    const villainIdx = posOrder.indexOf(villainPos);
+    const villainIsIP = villainIdx > heroIdx;
+    const threeBetSize = get3BetSize(heroOpenSize, villainIsIP);
+    return { currentBet: threeBetSize, villainOpenSize: threeBetSize };
+  }
+
+  return { currentBet: 0, villainOpenSize: 0 };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -193,6 +242,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   communityCards: [],
   pot: 1.5,
   currentBet: 0,
+  villainOpenSize: 0,
   actions: [],
   isHandComplete: false,
   dealAnimationDone: false,
@@ -232,9 +282,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const villainPos = getVillainPosition(format, heroPosition, activeScenario);
     const numPlayers = format === '6max' ? 6 : 9;
     const { holeCards, flop, turn, river } = dealHand(numPlayers);
-    const preflopActions = buildPreflopActions(activeScenario, heroPosition, villainPos, format);
+    const { currentBet, villainOpenSize } = calcCurrentBet(activeScenario, villainPos, heroPosition);
+    const preflopActions = buildPreflopActions(activeScenario, heroPosition, villainPos, format, villainOpenSize);
     const pot = calcPot(preflopActions, numPlayers, ante);
-    const currentBet = calcCurrentBet(activeScenario);
 
     set({
       format,
@@ -248,6 +298,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       communityCards: [],
       pot,
       currentBet,
+      villainOpenSize,
       actions: preflopActions,
       isHandComplete: false,
       dealAnimationDone: false,

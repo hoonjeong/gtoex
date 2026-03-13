@@ -27,6 +27,7 @@ export interface GameState {
   communityCards: Card[];
   pot: number; // in BB
   currentBet: number; // in BB
+  villainOpenSize: number; // 빌런의 오픈/3벳 사이즈 (BB)
   actions: PlayerAction[];
   isHandComplete: boolean;
   dealAnimationDone: boolean;

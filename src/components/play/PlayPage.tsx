@@ -85,8 +85,8 @@ export default function PlayPage() {
     game.activeScenario === 'RFI'
       ? 'RFI (오픈 레이즈)'
       : game.activeScenario === 'vsRFI'
-        ? `vs ${POSITION_LABELS[game.villainPosition || ''] || ''} 오픈`
-        : `vs ${POSITION_LABELS[game.villainPosition || ''] || ''} 3벳`;
+        ? `vs ${POSITION_LABELS[game.villainPosition || ''] || ''} 오픈 (${formatBB(game.villainOpenSize)})`
+        : `vs ${POSITION_LABELS[game.villainPosition || ''] || ''} 3벳 (${formatBB(game.villainOpenSize)})`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a1a2e] to-[#16213e] flex flex-col">
