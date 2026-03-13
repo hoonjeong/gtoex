@@ -82,12 +82,63 @@ export default function Seat({
 
   const label = POSITION_LABELS[position] || position;
 
-  // Color scheme
-  let ringColor = '#4b5563';  // gray
+  // ── Folded state: very dim, desaturated ──
+  if (hasFolded) {
+    return (
+      <div
+        className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-500"
+        style={{
+          left: `calc(50% + ${x}px)`,
+          top: `calc(50% + ${y}px)`,
+          opacity: 0.3,
+          filter: 'grayscale(100%)',
+        }}
+      >
+        <div
+          className="relative flex flex-col items-center justify-center rounded-full"
+          style={{
+            width: 56,
+            height: 56,
+            background: 'linear-gradient(145deg, #1f2937, #111827)',
+            border: '2px solid #374151',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          }}
+        >
+          {/* X overlay */}
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ zIndex: 2 }}
+          >
+            <svg width="32" height="32" viewBox="0 0 32 32">
+              <line x1="8" y1="8" x2="24" y2="24" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+              <line x1="24" y1="8" x2="8" y2="24" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+            </svg>
+          </div>
+          <span
+            className="font-extrabold leading-none"
+            style={{ fontSize: 12, color: '#4b5563', zIndex: 1 }}
+          >
+            {label}
+          </span>
+          <span
+            className="leading-none mt-0.5"
+            style={{ fontSize: 8, color: '#ef4444', fontWeight: 700, letterSpacing: '0.1em', zIndex: 3 }}
+          >
+            FOLD
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active state ──
+  let ringColor = '#6b7280';
   let bgFrom = '#374151';
   let bgTo = '#1f2937';
   let labelColor = '#d1d5db';
   let subColor = '#9ca3af';
+  let glowShadow = '';
+  let statusDotColor = '#22c55e'; // green alive dot for everyone
 
   if (isHero) {
     ringColor = '#3b82f6';
@@ -95,20 +146,16 @@ export default function Seat({
     bgTo = '#1e40af';
     labelColor = '#bfdbfe';
     subColor = '#93c5fd';
+    glowShadow = '0 0 12px rgba(59,130,246,0.5), 0 0 24px rgba(59,130,246,0.2)';
+    statusDotColor = '#3b82f6';
   } else if (isVillain) {
     ringColor = '#ef4444';
     bgFrom = '#7f1d1d';
     bgTo = '#991b1b';
     labelColor = '#fecaca';
     subColor = '#fca5a5';
-  }
-
-  if (hasFolded) {
-    ringColor = '#374151';
-    bgFrom = '#1f2937';
-    bgTo = '#111827';
-    labelColor = '#6b7280';
-    subColor = '#4b5563';
+    glowShadow = '0 0 12px rgba(239,68,68,0.5), 0 0 24px rgba(239,68,68,0.2)';
+    statusDotColor = '#ef4444';
   }
 
   return (
@@ -127,9 +174,7 @@ export default function Seat({
           height: 56,
           background: `linear-gradient(145deg, ${bgFrom}, ${bgTo})`,
           border: `2.5px solid ${ringColor}`,
-          boxShadow: hasFolded
-            ? '0 2px 8px rgba(0,0,0,0.3)'
-            : `0 2px 12px rgba(0,0,0,0.4), 0 0 16px ${ringColor}30`,
+          boxShadow: glowShadow || `0 2px 12px rgba(0,0,0,0.4), 0 0 16px ${ringColor}30`,
         }}
       >
         <span
@@ -138,20 +183,34 @@ export default function Seat({
         >
           {label}
         </span>
-        {isHero && !hasFolded && (
+        {isHero && (
           <span className="leading-none mt-0.5" style={{ fontSize: 8, color: subColor, letterSpacing: '0.05em' }}>
             YOU
           </span>
         )}
-        {hasFolded && (
-          <span className="leading-none mt-0.5" style={{ fontSize: 8, color: subColor }}>
-            FOLD
+        {isVillain && (
+          <span className="leading-none mt-0.5" style={{ fontSize: 8, color: subColor, letterSpacing: '0.05em' }}>
+            OPP
           </span>
         )}
       </div>
 
+      {/* Alive indicator dot (bottom-right) */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 10,
+          height: 10,
+          bottom: 1,
+          right: 1,
+          background: statusDotColor,
+          border: '2px solid #111827',
+          boxShadow: `0 0 6px ${statusDotColor}80`,
+        }}
+      />
+
       {/* Dealer button indicator for BTN */}
-      {position === 'BTN' && !hasFolded && (
+      {position === 'BTN' && (
         <div
           className="absolute -top-1 -right-1 rounded-full flex items-center justify-center"
           style={{

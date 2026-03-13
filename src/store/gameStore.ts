@@ -122,7 +122,7 @@ function buildPreflopActions(
     // 히어로 앞의 모든 플레이어가 폴드
     for (const pos of order) {
       if (pos === heroPos) break;
-      actions.push({ position: pos as Position, action: 'fold' });
+      actions.push({ position: pos as Position, action: 'fold', street: 'preflop' });
     }
   } else if (scenario === 'vsRFI' && villainPos) {
     // 빌런 앞은 폴드, 빌런은 오픈 레이즈, 빌런과 히어로 사이는 폴드
@@ -130,31 +130,31 @@ function buildPreflopActions(
     for (const pos of order) {
       if (pos === heroPos) break;
       if (pos === villainPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize });
+        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize, street: 'preflop' });
         villainPassed = true;
         continue;
       }
-      actions.push({ position: pos as Position, action: 'fold' });
+      actions.push({ position: pos as Position, action: 'fold', street: 'preflop' });
     }
     if (!villainPassed) {
-      actions.unshift({ position: order[0] as Position, action: 'raise', amount: villainOpenSize });
+      actions.unshift({ position: order[0] as Position, action: 'raise', amount: villainOpenSize, street: 'preflop' });
     }
   } else if (scenario === 'vs3Bet' && villainPos) {
     // 히어로 오픈 레이즈, 빌런 3벳
     const heroOpenSize = getOpenSize(heroPos);
     for (const pos of order) {
       if (pos === heroPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: heroOpenSize });
+        actions.push({ position: pos as Position, action: 'raise', amount: heroOpenSize, street: 'preflop' });
         continue;
       }
       if (pos === villainPos) {
-        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize });
+        actions.push({ position: pos as Position, action: 'raise', amount: villainOpenSize, street: 'preflop' });
         break;
       }
       if (!actions.some(a => a.position === heroPos)) {
-        actions.push({ position: pos as Position, action: 'fold' });
+        actions.push({ position: pos as Position, action: 'fold', street: 'preflop' });
       } else {
-        actions.push({ position: pos as Position, action: 'fold' });
+        actions.push({ position: pos as Position, action: 'fold', street: 'preflop' });
       }
     }
   }
@@ -361,7 +361,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pot: newPot,
       actions: [
         ...state.actions,
-        { position: state.heroPosition, action, amount: heroAmount },
+        { position: state.heroPosition, action, amount: heroAmount, street: state.street },
       ],
     });
 
@@ -412,6 +412,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             position: state.villainPosition,
             action: 'raise',
             amount: newCurrentBet,
+            street: nextStreet,
           });
         }
       } else {
@@ -480,6 +481,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           position: state.villainPosition,
           action: 'call',
           amount: villainCallAmount,
+          street: state.street,
         });
       }
     }
@@ -503,6 +505,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             position: state.villainPosition,
             action: 'raise',
             amount: newCurrentBet,
+            street: nextStreet,
           });
         }
       } else {

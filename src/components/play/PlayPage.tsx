@@ -120,6 +120,7 @@ export default function PlayPage() {
           communityCards={game.communityCards}
           pot={game.pot}
           actions={game.actions}
+          street={game.street}
         />
 
         {/* Hero cards */}

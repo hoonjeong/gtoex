@@ -14,6 +14,7 @@ export interface PlayerAction {
   position: Position;
   action: ActionType;
   amount?: number; // in BB
+  street?: Street; // 어느 스트릿에서 발생한 액션인지
 }
 
 export interface GameState {

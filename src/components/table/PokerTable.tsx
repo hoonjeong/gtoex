@@ -1,5 +1,5 @@
 import type { Card as CardType } from '../../types/card';
-import type { GameFormat, Position, PlayerAction } from '../../types/game';
+import type { GameFormat, Position, PlayerAction, Street } from '../../types/game';
 import { POSITIONS_6MAX, POSITIONS_9MAX, SEAT_ANGLES_6MAX, SEAT_ANGLES_9MAX } from '../../constants/positions';
 import Seat, { stadiumPoint } from './Seat';
 import CommunityCards from './CommunityCards';
@@ -13,6 +13,7 @@ interface PokerTableProps {
   communityCards: CardType[];
   pot: number;
   actions: PlayerAction[];
+  street: Street;
 }
 
 export default function PokerTable({
@@ -22,6 +23,7 @@ export default function PokerTable({
   communityCards,
   pot,
   actions,
+  street,
 }: PokerTableProps) {
   const positions = format === '6max' ? POSITIONS_6MAX : POSITIONS_9MAX;
   const baseAngles = format === '6max' ? SEAT_ANGLES_6MAX : SEAT_ANGLES_9MAX;
@@ -43,19 +45,26 @@ export default function PokerTable({
   // Stadium border-radius = half of element height → flat top/bottom, rounded left/right
   const br = (h: number) => h / 2;
 
+  // 폴드한 포지션 (전체 히스토리에서)
   const foldedPositions = new Set(
     actions.filter((a) => a.action === 'fold').map((a) => a.position)
   );
 
-  // 각 포지션별 베팅 금액 계산 (가장 최근 액션의 금액)
+  // 현재 스트릿의 베팅만 표시 (이전 스트릿 칩은 팟으로 들어감)
   const betByPosition = new Map<string, number>();
 
-  // 블라인드: SB=0.5, BB=1 (항상 표시)
-  betByPosition.set('SB', 0.5);
-  betByPosition.set('BB', 1);
+  if (street === 'preflop') {
+    // 프리플랍: 블라인드 기본 표시
+    if (!foldedPositions.has('SB')) betByPosition.set('SB', 0.5);
+    if (!foldedPositions.has('BB')) betByPosition.set('BB', 1);
+  }
 
-  // 액션에서 금액이 있는 것만 표시 (레이즈/콜)
+  // 현재 스트릿 액션만 필터하여 칩 표시
   for (const action of actions) {
+    // street 태그가 없는 옛 액션은 preflop으로 간주
+    const actionStreet = action.street || 'preflop';
+    if (actionStreet !== street) continue;
+
     if (action.action === 'fold') {
       betByPosition.delete(action.position);
     } else if (action.amount && action.amount > 0) {
