@@ -1,9 +1,10 @@
 import type { Card as CardType } from '../../types/card';
 import type { GameFormat, Position, PlayerAction } from '../../types/game';
 import { POSITIONS_6MAX, POSITIONS_9MAX, SEAT_ANGLES_6MAX, SEAT_ANGLES_9MAX } from '../../constants/positions';
-import Seat from './Seat';
+import Seat, { stadiumPoint } from './Seat';
 import CommunityCards from './CommunityCards';
 import PotDisplay from './PotDisplay';
+import BetChip from './BetChip';
 
 interface PokerTableProps {
   format: GameFormat;
@@ -36,6 +37,26 @@ export default function PokerTable({
   const foldedPositions = new Set(
     actions.filter((a) => a.action === 'fold').map((a) => a.position)
   );
+
+  // 각 포지션별 베팅 금액 계산 (가장 최근 액션의 금액)
+  const betByPosition = new Map<string, number>();
+
+  // 블라인드: SB=0.5, BB=1 (항상 표시)
+  if (!foldedPositions.has('SB')) betByPosition.set('SB', 0.5);
+  if (!foldedPositions.has('BB')) betByPosition.set('BB', 1);
+
+  // 액션에서 금액이 있는 것만 표시 (레이즈/콜)
+  for (const action of actions) {
+    if (action.action === 'fold') {
+      betByPosition.delete(action.position);
+    } else if (action.amount && action.amount > 0) {
+      betByPosition.set(action.position, action.amount);
+    }
+  }
+
+  // 벳 칩 위치: 시트보다 테이블 안쪽 (시트와 센터 사이)
+  const betHalfW = W * 0.68;
+  const betHalfH = H * 0.68;
 
   return (
     <div className="relative mx-auto" style={{ width: containerW, height: containerH }}>
@@ -139,6 +160,24 @@ export default function PokerTable({
           <PotDisplay pot={pot} />
         </div>
       </div>
+
+      {/* ── Bet Chips ── */}
+      {positions.map((pos) => {
+        const betAmount = betByPosition.get(pos);
+        if (!betAmount || foldedPositions.has(pos)) return null;
+        const angle = (angles as Record<string, number>)[pos] || 0;
+        const { x, y } = stadiumPoint(angle, betHalfW, betHalfH);
+        return (
+          <BetChip
+            key={`bet-${pos}`}
+            amount={betAmount}
+            x={x}
+            y={y}
+            isHero={pos === heroPosition}
+            isVillain={pos === villainPosition}
+          />
+        );
+      })}
 
       {/* ── Seats ── */}
       {positions.map((pos) => (

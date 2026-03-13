@@ -13,7 +13,7 @@ interface SeatProps {
 }
 
 /** Find the point where a ray from the origin at `angleDeg` intersects a stadium boundary. */
-function stadiumPoint(angleDeg: number, halfW: number, halfH: number): { x: number; y: number } {
+export function stadiumPoint(angleDeg: number, halfW: number, halfH: number): { x: number; y: number } {
   const rad = (angleDeg * Math.PI) / 180;
   const dx = Math.cos(rad);
   const dy = Math.sin(rad);
