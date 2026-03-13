@@ -1,0 +1,159 @@
+import type { Card as CardType } from '../../types/card';
+import type { GameFormat, Position, PlayerAction } from '../../types/game';
+import { POSITIONS_6MAX, POSITIONS_9MAX, SEAT_ANGLES_6MAX, SEAT_ANGLES_9MAX } from '../../constants/positions';
+import Seat from './Seat';
+import CommunityCards from './CommunityCards';
+import PotDisplay from './PotDisplay';
+
+interface PokerTableProps {
+  format: GameFormat;
+  heroPosition: Position;
+  villainPosition: Position | null;
+  communityCards: CardType[];
+  pot: number;
+  actions: PlayerAction[];
+}
+
+export default function PokerTable({
+  format,
+  heroPosition,
+  villainPosition,
+  communityCards,
+  pot,
+  actions,
+}: PokerTableProps) {
+  const positions = format === '6max' ? POSITIONS_6MAX : POSITIONS_9MAX;
+  const angles = format === '6max' ? SEAT_ANGLES_6MAX : SEAT_ANGLES_9MAX;
+
+  const W = format === '6max' ? 360 : 400;
+  const H = format === '6max' ? 215 : 235;
+  const containerW = W * 2 + 180;
+  const containerH = H * 2 + 170;
+
+  // Stadium border-radius = half of element height → flat top/bottom, rounded left/right
+  const br = (h: number) => h / 2;
+
+  const foldedPositions = new Set(
+    actions.filter((a) => a.action === 'fold').map((a) => a.position)
+  );
+
+  return (
+    <div className="relative mx-auto" style={{ width: containerW, height: containerH }}>
+
+      {/* ── Layer 1: Table shadow on the "floor" ── */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: W * 2 + 30,
+          height: H * 2 + 30,
+          borderRadius: br(H * 2 + 30),
+          background: 'rgba(0,0,0,0.35)',
+          filter: 'blur(20px)',
+        }}
+      />
+
+      {/* ── Layer 2: Wood rail (outer) ── */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: W * 2 + 24,
+          height: H * 2 + 24,
+          borderRadius: br(H * 2 + 24),
+          background: `
+            radial-gradient(ellipse at 30% 20%, #8b6914 0%, #6b4f10 30%, #4a3510 70%, #3a2808 100%)
+          `,
+          boxShadow: `
+            inset 0 2px 4px rgba(255,255,255,0.1),
+            inset 0 -3px 6px rgba(0,0,0,0.4),
+            0 4px 20px rgba(0,0,0,0.5)
+          `,
+        }}
+      />
+
+      {/* ── Layer 3: Padded rail (inner cushion) ── */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: W * 2 + 6,
+          height: H * 2 + 6,
+          borderRadius: br(H * 2 + 6),
+          background: `
+            radial-gradient(ellipse at 40% 25%, #5c3d1e 0%, #4a2e14 50%, #3a200c 100%)
+          `,
+          boxShadow: `
+            inset 0 3px 8px rgba(0,0,0,0.6),
+            inset 0 -1px 2px rgba(255,255,255,0.05)
+          `,
+        }}
+      />
+
+      {/* ── Layer 4: Felt surface ── */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden"
+        style={{
+          width: W * 2 - 14,
+          height: H * 2 - 14,
+          borderRadius: br(H * 2 - 14),
+          background: `
+            radial-gradient(ellipse at 45% 35%, #22994d 0%, #1a7f3e 25%, #147034 50%, #0e5a28 75%, #094a1f 100%)
+          `,
+          boxShadow: `
+            inset 0 0 80px rgba(0,0,0,0.25),
+            inset 0 4px 16px rgba(0,0,0,0.15)
+          `,
+        }}
+      >
+        {/* Felt texture overlay (noise-like) */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `
+              repeating-linear-gradient(0deg,   transparent, transparent 2px, rgba(255,255,255,0.5) 2px, transparent 3px),
+              repeating-linear-gradient(90deg,  transparent, transparent 2px, rgba(255,255,255,0.5) 2px, transparent 3px)
+            `,
+          }}
+        />
+
+        {/* Subtle highlight on felt (light source from top-left) */}
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            background: 'radial-gradient(ellipse at 35% 25%, rgba(255,255,255,0.6), transparent 60%)',
+          }}
+        />
+
+        {/* Inner betting line */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            width: W * 2 - 80,
+            height: H * 2 - 80,
+            borderRadius: br(H * 2 - 80),
+            border: '1.5px solid rgba(255,255,255,0.06)',
+          }}
+        />
+
+        {/* Community cards & pot — centered */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5">
+          <CommunityCards cards={communityCards} />
+          <PotDisplay pot={pot} />
+        </div>
+      </div>
+
+      {/* ── Seats ── */}
+      {positions.map((pos) => (
+        <Seat
+          key={pos}
+          position={pos}
+          isHero={pos === heroPosition}
+          isVillain={pos === villainPosition}
+          isActive={!foldedPositions.has(pos)}
+          hasFolded={foldedPositions.has(pos)}
+          angle={(angles as Record<string, number>)[pos] || 0}
+          tableWidth={W}
+          tableHeight={H}
+        />
+      ))}
+    </div>
+  );
+}
