@@ -82,7 +82,7 @@ export default function Seat({
 
   const label = POSITION_LABELS[position] || position;
 
-  // ── Folded state: very dim, desaturated ──
+  // ── Folded state: dimmed but label still readable ──
   if (hasFolded) {
     return (
       <div
@@ -90,8 +90,7 @@ export default function Seat({
         style={{
           left: `calc(50% + ${x}px)`,
           top: `calc(50% + ${y}px)`,
-          opacity: 0.3,
-          filter: 'grayscale(100%)',
+          opacity: 0.55,
         }}
       >
         <div
@@ -100,23 +99,13 @@ export default function Seat({
             width: 56,
             height: 56,
             background: 'linear-gradient(145deg, #1f2937, #111827)',
-            border: '2px solid #374151',
+            border: '2px solid #4b5563',
             boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
           }}
         >
-          {/* X overlay */}
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ zIndex: 2 }}
-          >
-            <svg width="32" height="32" viewBox="0 0 32 32">
-              <line x1="8" y1="8" x2="24" y2="24" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
-              <line x1="24" y1="8" x2="8" y2="24" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
-            </svg>
-          </div>
           <span
             className="font-extrabold leading-none"
-            style={{ fontSize: 12, color: '#4b5563', zIndex: 1 }}
+            style={{ fontSize: 13, color: '#9ca3af', zIndex: 3 }}
           >
             {label}
           </span>
@@ -126,6 +115,15 @@ export default function Seat({
           >
             FOLD
           </span>
+        </div>
+        {/* 빨간 사선 — 시트 바깥 좌상→우하 */}
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          style={{ zIndex: 4 }}
+        >
+          <svg width="56" height="56" viewBox="0 0 56 56">
+            <line x1="14" y1="14" x2="42" y2="42" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
+          </svg>
         </div>
       </div>
     );
