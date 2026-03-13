@@ -29,7 +29,7 @@ interface GameStore extends GameState {
     scenario: ScenarioType,
     ante?: number
   ) => void;
-  submitAction: (action: 'fold' | 'call' | 'raise') => void;
+  submitAction: (action: 'fold' | 'call' | 'raise', raiseSize?: number) => void;
   advanceStreet: () => void;
   closeFeedback: () => void;
   nextHand: () => void;
@@ -318,7 +318,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     setTimeout(() => set({ dealAnimationDone: true }), 600);
   },
 
-  submitAction: (action) => {
+  submitAction: (action, raiseSize?) => {
     const state = get();
     if (!state.heroCards || state.isHandComplete) return;
 
@@ -340,13 +340,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // 히어로 액션 금액 계산
     let heroAmount: number | undefined;
     if (action === 'raise') {
-      if (state.currentBet > 0) {
-        // 빌런 벳에 대한 레이즈: ~2.5~3x
-        heroAmount = Math.round(state.currentBet * 2.75 * 10) / 10;
-      } else {
-        // 첫 벳: 팟의 50~75%
-        heroAmount = Math.round(state.pot * 0.66 * 10) / 10;
-      }
+      // 유저가 직접 지정한 사이즈 사용
+      heroAmount = raiseSize ?? (state.currentBet > 0
+        ? Math.round(state.currentBet * 2.75 * 10) / 10
+        : Math.round(state.pot * 0.66 * 10) / 10);
     } else if (action === 'call' && state.currentBet > 0) {
       heroAmount = state.currentBet;
     }
@@ -404,10 +401,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const heroIsIP = villainIdx >= 0 && heroIdx > villainIdx;
 
     let newCurrentBet: number;
+    const newActions = [...state.actions];
     if (heroIsIP) {
       // 빌런이 먼저: 체크 or 벳
       const villainBets = Math.random() > 0.5;
-      newCurrentBet = villainBets ? Math.round(state.pot * 0.6 * 10) / 10 : 0;
+      if (villainBets) {
+        newCurrentBet = Math.round(state.pot * 0.6 * 10) / 10;
+        if (state.villainPosition) {
+          newActions.push({
+            position: state.villainPosition,
+            action: 'raise',
+            amount: newCurrentBet,
+          });
+        }
+      } else {
+        newCurrentBet = 0;
+      }
     } else {
       newCurrentBet = 0;
     }
@@ -417,6 +426,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       communityCards: newCommunity,
       pot: state.pot,
       currentBet: newCurrentBet,
+      actions: newActions,
       showFeedback: false,
       currentAdvice: null,
       lastResult: null,
@@ -457,16 +467,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       newCommunity = [...newCommunity, state.riverCard];
     }
 
-    // 팟 계산 현실화: 빌런 콜 시뮬레이션
+    // 팟 계산 현실화: 빌런 콜/벳 시뮬레이션
     let newPot = state.pot;
+    const newActions = [...state.actions];
 
     if (lastAction?.action === 'raise' && lastAction.amount) {
       // 히어로가 레이즈/벳 → 빌런이 콜한 것으로 가정
-      newPot += lastAction.amount;
-    } else if (lastAction?.action === 'call' && state.currentBet > 0) {
-      // 히어로가 콜 → 이미 팟에 포함됨 (currentBet은 히어로의 콜 금액)
-      // 추가 없음
+      const villainCallAmount = lastAction.amount;
+      newPot += villainCallAmount;
+      if (state.villainPosition) {
+        newActions.push({
+          position: state.villainPosition,
+          action: 'call',
+          amount: villainCallAmount,
+        });
+      }
     }
+    // 히어로가 콜 → 이미 팟에 포함됨, 추가 없음
 
     // IP/OOP에 따른 다음 스트릿 빌런 액션
     const order = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
@@ -481,6 +498,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (villainBets) {
         const betSize = newPot * (0.5 + Math.random() * 0.25); // 50~75% 팟벳
         newCurrentBet = Math.round(betSize * 10) / 10;
+        if (state.villainPosition) {
+          newActions.push({
+            position: state.villainPosition,
+            action: 'raise',
+            amount: newCurrentBet,
+          });
+        }
       } else {
         newCurrentBet = 0; // 빌런 체크 → 히어로는 체크/벳 선택
       }
@@ -494,6 +518,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       communityCards: newCommunity,
       pot: newPot,
       currentBet: newCurrentBet,
+      actions: newActions,
       showFeedback: false,
       currentAdvice: null,
       lastResult: null,

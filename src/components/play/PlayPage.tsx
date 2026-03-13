@@ -30,9 +30,9 @@ export default function PlayPage() {
   }, [game, setup]);
 
   const handleAction = useCallback(
-    (action: 'fold' | 'call' | 'raise') => {
+    (action: 'fold' | 'call' | 'raise', raiseSize?: number) => {
       if (game.showFeedback || game.isHandComplete) return;
-      game.submitAction(action);
+      game.submitAction(action, raiseSize);
     },
     [game]
   );
