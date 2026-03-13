@@ -24,7 +24,16 @@ export default function PokerTable({
   actions,
 }: PokerTableProps) {
   const positions = format === '6max' ? POSITIONS_6MAX : POSITIONS_9MAX;
-  const angles = format === '6max' ? SEAT_ANGLES_6MAX : SEAT_ANGLES_9MAX;
+  const baseAngles = format === '6max' ? SEAT_ANGLES_6MAX : SEAT_ANGLES_9MAX;
+
+  // 히어로가 항상 하단 중앙(90°)에 오도록 각도 회전
+  const heroBaseAngle = (baseAngles as Record<string, number>)[heroPosition] || 0;
+  const rotationOffset = 90 - heroBaseAngle;
+  const angles: Record<string, number> = {};
+  for (const pos of positions) {
+    const base = (baseAngles as Record<string, number>)[pos] || 0;
+    angles[pos] = (base + rotationOffset + 360) % 360;
+  }
 
   const W = format === '6max' ? 360 : 400;
   const H = format === '6max' ? 215 : 235;
@@ -42,8 +51,8 @@ export default function PokerTable({
   const betByPosition = new Map<string, number>();
 
   // 블라인드: SB=0.5, BB=1 (항상 표시)
-  if (!foldedPositions.has('SB')) betByPosition.set('SB', 0.5);
-  if (!foldedPositions.has('BB')) betByPosition.set('BB', 1);
+  betByPosition.set('SB', 0.5);
+  betByPosition.set('BB', 1);
 
   // 액션에서 금액이 있는 것만 표시 (레이즈/콜)
   for (const action of actions) {
@@ -165,8 +174,7 @@ export default function PokerTable({
       {positions.map((pos) => {
         const betAmount = betByPosition.get(pos);
         if (!betAmount || foldedPositions.has(pos)) return null;
-        const angle = (angles as Record<string, number>)[pos] || 0;
-        const { x, y } = stadiumPoint(angle, betHalfW, betHalfH);
+        const { x, y } = stadiumPoint(angles[pos] || 0, betHalfW, betHalfH);
         return (
           <BetChip
             key={`bet-${pos}`}
@@ -188,7 +196,7 @@ export default function PokerTable({
           isVillain={pos === villainPosition}
           isActive={!foldedPositions.has(pos)}
           hasFolded={foldedPositions.has(pos)}
-          angle={(angles as Record<string, number>)[pos] || 0}
+          angle={angles[pos] || 0}
           tableWidth={W}
           tableHeight={H}
         />

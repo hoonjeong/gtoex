@@ -6,6 +6,7 @@ import { useStatsStore } from '../../store/statsStore';
 import PokerTable from '../table/PokerTable';
 import Card from '../table/Card';
 import ActionPanel from './ActionPanel';
+import ActionContext from './ActionContext';
 import GtoFeedbackModal from '../feedback/GtoFeedbackModal';
 import { STRINGS } from '../../constants/strings';
 import { POSITION_LABELS } from '../../constants/positions';
@@ -134,8 +135,18 @@ export default function PlayPage() {
           </div>
         )}
 
-        {/* Action panel or hand complete message */}
-        <div className="mt-3">
+        {/* Action context + Action panel */}
+        <div className="mt-3 flex flex-col items-center gap-2">
+          {!game.isHandComplete && !game.showFeedback && (
+            <ActionContext
+              scenario={game.activeScenario}
+              street={game.street}
+              heroPosition={game.heroPosition}
+              villainPosition={game.villainPosition}
+              actions={game.actions}
+              currentBet={game.currentBet}
+            />
+          )}
           {!game.isHandComplete && !game.showFeedback && (
             <ActionPanel
               onAction={handleAction}
